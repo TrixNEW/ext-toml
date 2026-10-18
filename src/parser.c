@@ -73,12 +73,26 @@ static zend_always_inline bool is_digit(unsigned char c)
 	return (unsigned) (c - '0') < 10;
 }
 
+enum { C_BARE = 1, C_BASIC = 2, C_LITERAL = 4 };
+
+/* bare key characters, and characters that need no attention inside basic and literal strings */
+static const unsigned char char_class[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	6, 6, 4, 6, 6, 6, 6, 2, 6, 6, 6, 6, 6, 7, 6, 6,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6,
+	6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 4, 6, 6, 7,
+	6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 0,
+};
+
 static zend_always_inline bool is_bare(unsigned char c)
 {
-	return (unsigned) ((c | 0x20) - 'a') < 26 || is_digit(c) || c == '_' || c == '-';
+	return char_class[c] & C_BARE;
 }
 
-/* printable ASCII, the bulk of every document */
+/* printable ASCII */
 static zend_always_inline bool is_plain(unsigned char c)
 {
 	return (unsigned) (c - 0x20) < 0x5F;
@@ -279,12 +293,11 @@ static void keys_grow(toml_parser *P)
 
 /* Keys repeat heavily (arrays of tables), so each distinct key is allocated once
  * per parse and shared by every table that uses it. */
-static zend_string *key_string(toml_parser *P, const char *s, size_t len)
+static zend_string *key_string(toml_parser *P, const char *s, size_t len, zend_ulong h)
 {
 	if (len <= 1) {
 		return zend_string_init_fast(s, len);
 	}
-	zend_ulong h = zend_inline_hash_func(s, len);
 	uint32_t i = (uint32_t) h & P->keys_mask;
 	zend_string *k;
 	while ((k = P->keys[i])) {
@@ -361,11 +374,21 @@ static zend_always_inline zval *tab_add(HashTable *t, const toml_key *k, zval *v
 	return k->str ? zend_hash_add(t, k->str, v) : zend_hash_index_add(t, k->idx, v);
 }
 
+static zend_always_inline void tab_add_new(HashTable *t, const toml_key *k, zval *v)
+{
+	if (k->str) {
+		zend_hash_add_new(t, k->str, v);
+	} else {
+		zend_hash_index_add_new(t, k->idx, v);
+	}
+}
+
+/* only for keys known to be absent */
 static HashTable *tab_new_table(toml_parser *P, HashTable *t, const toml_key *k, uint32_t flags)
 {
 	zval zv;
 	array_init(&zv);
-	tab_add(t, k, &zv);
+	tab_add_new(t, k, &zv);
 	if (flags) {
 		open_set(P, Z_ARRVAL(zv), flags);
 	}
@@ -480,7 +503,7 @@ static bool scan_basic(toml_parser *P, const char **start, size_t *len, const ch
 	*start = (const char *) p;
 	for (;;) {
 		unsigned char c = *p;
-		if (EXPECTED(is_plain(c) && c != '"' && c != '\\')) {
+		if (EXPECTED(char_class[c] & C_BASIC)) {
 			p++;
 		} else if (c == '"') {
 			break;
@@ -513,7 +536,7 @@ static bool scan_literal(toml_parser *P, const char **start, size_t *len)
 	*start = (const char *) p;
 	for (;;) {
 		unsigned char c = *p;
-		if (EXPECTED(is_plain(c) && c != '\'')) {
+		if (EXPECTED(char_class[c] & C_LITERAL)) {
 			p++;
 		} else if (c == '\'') {
 			break;
@@ -536,6 +559,7 @@ static bool scan_multiline(toml_parser *P, char q, const char **start, size_t *l
 {
 	const unsigned char *p = (const unsigned char *) P->p + 3;
 	const char *first = NULL;
+	unsigned char plain = q == '"' ? C_BASIC : C_LITERAL;
 	if (*p == '\n') {
 		p++;
 	} else if (*p == '\r' && p[1] == '\n') {
@@ -544,7 +568,7 @@ static bool scan_multiline(toml_parser *P, char q, const char **start, size_t *l
 	*start = (const char *) p;
 	for (;;) {
 		unsigned char c = *p;
-		if (EXPECTED(is_plain(c) && c != q && c != '\\')) {
+		if (EXPECTED(char_class[c] & plain)) {
 			p++;
 		} else if (c == q) {
 			if (p[1] == q && p[2] == q) {
@@ -560,7 +584,7 @@ static bool scan_multiline(toml_parser *P, char q, const char **start, size_t *l
 				break;
 			}
 			p++;
-		} else if (c == '\\' && q == '"') {
+		} else if (c == '\\') {
 			if (!first) {
 				first = (const char *) p;
 			}
@@ -586,7 +610,7 @@ static bool scan_multiline(toml_parser *P, char q, const char **start, size_t *l
 				return false;
 			}
 			p += n;
-		} else if (c == '\t' || c == '\n' || c == '\\') {
+		} else if (c == '\t' || c == '\n') {
 			p++;
 		} else if (c == '\r' && p[1] == '\n') {
 			p += 2;
@@ -650,15 +674,20 @@ static bool parse_key_part(toml_parser *P, toml_key *k)
 {
 	const char *s, *esc = NULL;
 	size_t len;
-	zend_ulong idx;
+	zend_ulong h, idx;
 
 	k->at = P->p;
 	if (is_bare(*P->p)) {
-		s = P->p;
+		/* bare keys are ASCII, so this matches zend_inline_hash_func() */
+		const unsigned char *p = (const unsigned char *) P->p;
+		h = Z_UL(5381);
 		do {
-			P->p++;
-		} while (is_bare(*P->p));
-		len = P->p - s;
+			h = h * 33 + *p++;
+		} while (is_bare(*p));
+		h |= (zend_ulong) 1 << (SIZEOF_ZEND_LONG * 8 - 1);
+		s = P->p;
+		len = (const char *) p - s;
+		P->p = (const char *) p;
 	} else if (*P->p == '"' || *P->p == '\'') {
 		char q = *P->p;
 		if (P->p[1] == q && P->p[2] == q) {
@@ -672,6 +701,7 @@ static bool parse_key_part(toml_parser *P, toml_key *k)
 			len = unescape(buf, s, s + len, esc);
 			s = buf;
 		}
+		h = zend_inline_hash_func(s, len);
 	} else {
 		return fail_unexpected(P, P->p, "a key");
 	}
@@ -680,7 +710,7 @@ static bool parse_key_part(toml_parser *P, toml_key *k)
 		k->str = NULL;
 		k->idx = idx;
 	} else {
-		k->str = key_string(P, s, len);
+		k->str = key_string(P, s, len, h);
 	}
 	return true;
 }
@@ -1190,7 +1220,7 @@ static bool parse_header(toml_parser *P, HashTable *root, HashTable **cur)
 			zval tmp;
 			array_init(&tmp);
 			zend_hash_real_init_packed(Z_ARRVAL(tmp));
-			tab_add(t, k, &tmp);
+			tab_add_new(t, k, &tmp);
 			arr = Z_ARRVAL(tmp);
 			open_set(P, arr, OPEN_AOT);
 		} else if (Z_TYPE_P(zv) == IS_ARRAY && (open_get(P, Z_ARRVAL_P(zv)) & OPEN_AOT)) {
