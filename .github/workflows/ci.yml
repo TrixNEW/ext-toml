@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  TOML_TEST_COMMIT: ff49d109861c1ad25af53f687f2aef19ab650600
+  PMMPTHREAD_VERSION: 6.3.0
+
+jobs:
+  unix:
+    name: ${{ matrix.os }} PHP ${{ matrix.php }} ${{ matrix.ts }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        php: ['8.4', '8.5']
+        ts: [nts, ts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: phpize, php-config
+          coverage: none
+        env:
+          phpts: ${{ matrix.ts }}
+      - name: Build
+        run: |
+          phpize
+          ./configure --enable-toml
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+      - name: Build pmmpthread
+        if: matrix.ts == 'ts' && runner.os == 'Linux'
+        run: |
+          curl -fsSL "https://github.com/pmmp/ext-pmmpthread/archive/refs/tags/${PMMPTHREAD_VERSION}.tar.gz" | tar -xz
+          cd "ext-pmmpthread-${PMMPTHREAD_VERSION}"
+          phpize && ./configure && make -j"$(nproc)"
+          echo "TEST_ARGS=-d extension=$PWD/modules/pmmpthread.so" >> "$GITHUB_ENV"
+      - name: PHPT
+        run: php run-tests.php -q --show-diff -d extension=$PWD/modules/toml.so $TEST_ARGS tests
+      - name: toml-test
+        run: |
+          git clone -q https://github.com/toml-lang/toml-test.git /tmp/toml-test
+          git -C /tmp/toml-test checkout -q "$TOML_TEST_COMMIT"
+          php -d extension=$PWD/modules/toml.so tools/toml-test.php /tmp/toml-test/tests 1.1.0 -v
+
+  sanitizers:
+    name: ASan + UBSan (PHP ${{ matrix.ts }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ts: [nts, zts]
+    env:
+      PHP_VERSION: 8.4.26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: php
+        with:
+          path: ~/php
+          key: php-${{ env.PHP_VERSION }}-asan-ubsan-${{ matrix.ts }}
+      - name: Build PHP with sanitizers
+        if: steps.php.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL "https://www.php.net/distributions/php-${PHP_VERSION}.tar.xz" | tar -xJ
+          cd "php-${PHP_VERSION}"
+          ./configure --prefix="$HOME/php" --disable-all --disable-cgi --disable-phpdbg --enable-debug \
+            ${{ matrix.ts == 'zts' && '--enable-zts' || '' }} --enable-address-sanitizer --enable-undefined-sanitizer
+          make -j"$(nproc)" && make install
+      - name: Build
+        run: |
+          export PATH="$HOME/php/bin:$PATH"
+          phpize && ./configure --enable-toml && make -j"$(nproc)"
+      - name: Test
+        env:
+          USE_ZEND_ALLOC: 0
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          export PATH="$HOME/php/bin:$PATH"
+          php run-tests.php -q --show-diff -d extension=$PWD/modules/toml.so tests
+          git clone -q https://github.com/toml-lang/toml-test.git /tmp/toml-test
+          git -C /tmp/toml-test checkout -q "$TOML_TEST_COMMIT"
+          php -d extension=$PWD/modules/toml.so tools/toml-test.php /tmp/toml-test/tests 1.1.0 -v
+          cp -r /tmp/toml-test/tests /tmp/corpus && cp bench/data/*.toml /tmp/corpus/
+          php -d memory_limit=1G -d extension=$PWD/modules/toml.so tools/fuzz.php /tmp/corpus 200000 "$GITHUB_RUN_ID"
+
+  valgrind:
+    name: Valgrind
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: phpize, php-config
+          coverage: none
+          debug: true
+      - run: sudo apt-get update -q && sudo apt-get install -yq valgrind
+      - name: Build
+        run: phpize && ./configure --enable-toml && make -j"$(nproc)"
+      - name: PHPT under Valgrind
+        run: php run-tests.php -q -m --show-diff -d extension=$PWD/modules/toml.so tests
+
+  windows:
+    name: Windows PHP ${{ matrix.php }} ${{ matrix.ts }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4']
+        ts: [nts, ts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: php/php-windows-builder/extension@v1
+        with:
+          php-version: ${{ matrix.php }}
+          arch: x64
+          ts: ${{ matrix.ts }}
+          run-tests: true
