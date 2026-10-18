@@ -1,0 +1,7 @@
+name = "Quark"
+motd = "Welcome to the server"
+port = 19132
+max-players = 100
+online-mode = true
+view-distance = 8
+difficulty = "normal"

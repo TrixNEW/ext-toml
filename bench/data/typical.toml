@@ -1,0 +1,235 @@
+# Quark server configuration
+
+[server]
+name = "Quark Network"
+motd = "§bQuark §7| §fSurvival & Minigames"
+sub-motd = "play.example.net"
+ip = "0.0.0.0"
+port = 19132
+port-v6 = 19133
+enable-ipv6 = true
+max-players = 500
+online-mode = true
+xbox-auth = true
+white-list = false
+language = "eng"
+force-language = false
+shutdown-message = "Server closed"
+query-plugins = false
+status-refresh-ticks = 20
+started = 2026-03-01T09:30:00Z
+
+[network]
+compression-level = 6
+compression-threshold = 256
+async-compression = true
+batch-threshold = 256
+upnp-forwarding = false
+max-mtu-size = 1492
+enable-encryption = true
+rate-limit = { packets-per-second = 1200, burst = 3000, ban-seconds = 300 }
+proxies = ["10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5"]
+
+[debug]
+level = 1
+show-errors = true
+log-packets = false
+profiler = { enabled = false, interval-ms = 50, output = "logs/timings" }
+
+[player]
+save-player-data = true
+anti-xray = true
+spawn-protection = 16
+default-gamemode = "survival"
+allow-flight = false
+hardcore = false
+pvp = true
+max-chunks-per-tick = 4
+spawn-radius = 4
+title-fade = [10, 70, 20]
+
+[level-settings]
+default-format = "leveldb"
+auto-tick-rate = true
+auto-tick-rate-limit = 20
+always-tick-players = false
+base-tick-rate = 1
+light-updates = true
+clear-tick-list = true
+
+[chunk-sending]
+per-tick = 4
+max-chunks = 192
+spawn-radius = 4
+cache-chunks = true
+
+[chunk-ticking]
+per-tick = 40
+tick-radius = 3
+light-updates = false
+clear-tick-list = true
+disable-block-ticking = [1, 2, 3, 18, 31, 32, 37, 38, 39, 40, 81, 83, 106]
+
+[chunk-generation]
+queue-size = 8
+population-queue-size = 32
+
+[ticks-per]
+autosave = 6000
+cache-cleanup = 900
+
+[auto-report]
+enabled = true
+send-code = true
+send-settings = true
+send-phpinfo = false
+use-https = true
+host = "crash.example.net"
+
+[anonymous-statistics]
+enabled = false
+host = "stats.example.net"
+
+[memory]
+global-limit = 0
+main-limit = 0
+main-hard-limit = 2048
+async-worker-hard-limit = 512
+check-rate = 20
+continuous-trigger = true
+continuous-trigger-rate = 30
+
+[memory.garbage-collection]
+period = 36000
+collect-async-worker = true
+low-memory-trigger = true
+
+[memory.max-chunks]
+chunk-radius = 4
+disable-chunk-ticking = true
+
+[memory.world-caches]
+disable-chunk-cache = true
+low-memory-trigger = true
+
+[timings]
+host = "timings.example.net"
+enabled = false
+verbose = false
+history-length = 20
+history-interval = 6000
+privacy = false
+ignore = ["database.host", "database.password", "rcon.password"]
+
+[console]
+title-tick = true
+enable-input = true
+prompt = "> "
+colors = true
+
+[aliases]
+showtheversion = "version"
+savestop = ["save-all", "stop"]
+lobby = "transfer lobby.example.net 19132"
+gm = "gamemode"
+
+[worlds.world]
+seed = 1234567890
+generator = "normal"
+preset = ""
+difficulty = 2
+spawn = { x = 128.5, y = 72.0, z = -64.5 }
+border = 10_000
+
+[worlds.nether]
+seed = -987654321
+generator = "nether"
+preset = ""
+difficulty = 3
+spawn = { x = 0.5, y = 64.0, z = 0.5 }
+
+[worlds.lobby]
+seed = 0
+generator = "flat"
+preset = "2;7,2x3,2;1;"
+difficulty = 0
+read-only = true
+spawn = { x = 0.5, y = 5.0, z = 0.5 }
+
+[database]
+type = "mysql"
+host = "127.0.0.1"
+port = 3306
+user = "quark"
+password = "s3cr3t-p4ss"
+schema = "quark"
+pool-size = 8
+connect-timeout = 3.5
+options = { ssl = false, charset = "utf8mb4", collation = "utf8mb4_unicode_ci" }
+
+[rcon]
+enabled = false
+port = 19132
+password = ""
+max-clients = 50
+
+[[plugins]]
+name = "Essentials"
+enabled = true
+priority = 10
+depends = []
+config = { home-limit = 3, tpa-timeout = 30, kits = ["starter", "vip", "mvp"] }
+
+[[plugins]]
+name = "Economy"
+enabled = true
+priority = 20
+depends = ["Essentials"]
+config = { currency = "coins", starting-balance = 100.0, max-balance = 1e12 }
+
+[[plugins]]
+name = "Factions"
+enabled = true
+priority = 30
+depends = ["Essentials", "Economy"]
+config = { max-members = 20, claim-cost = 250.0, power-regen = 0.25 }
+
+[[plugins]]
+name = "Minigames"
+enabled = false
+priority = 40
+depends = ["Essentials"]
+config = { arenas = ["skywars", "bedwars", "duels"], queue-timeout = 120 }
+
+[permissions.default]
+"quark.command.help" = true
+"quark.command.list" = true
+"quark.command.me" = true
+"quark.command.tell" = true
+"quark.command.spawn" = true
+
+[permissions.vip]
+inherits = ["default"]
+"quark.command.fly" = true
+"quark.command.nick" = true
+"quark.kit.vip" = true
+
+[permissions.admin]
+inherits = ["vip"]
+"quark.command.gamemode" = true
+"quark.command.ban" = true
+"quark.command.kick" = true
+"quark.command.op" = true
+"quark.command.stop" = true
+
+[messages]
+join = "§e{player} joined the game"
+quit = "§e{player} left the game"
+kick = """
+You were kicked from the server.
+Reason: {reason}
+"""
+ban = '''
+You are banned.
+Appeal at https://example.net/appeal
+'''
