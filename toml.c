@@ -76,10 +76,7 @@ PHP_FUNCTION(toml_parse_file)
 		RETURN_THROWS();
 	}
 	if (!contents) {
-		if (!php_toml_decode(return_value, "", 0, &err)) {
-			throw_parse_error(&err, path);
-		}
-		return;
+		RETURN_EMPTY_ARRAY();
 	}
 	if (!php_toml_decode(return_value, ZSTR_VAL(contents), ZSTR_LEN(contents), &err)) {
 		throw_parse_error(&err, path);
