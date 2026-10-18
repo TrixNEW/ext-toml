@@ -1,18 +1,20 @@
 <?php
 
-// usage: php bench/run.php [--impl=ext|devium|yosymfony] [--time=1.0] [files...]
+// usage: php bench/run.php [--impl=ext|json|devium|yosymfony] [--time=1.0] [files...]
 // Without files it runs every document in bench/data (run generate.php first).
+// json times json_decode() on the same data re-encoded as JSON, as a reference point.
 
 $opts = getopt('', ['impl:', 'time:'], $rest);
 $impl = $opts['impl'] ?? 'ext';
 $budget = (float) ($opts['time'] ?? 1.0);
 $files = array_slice($argv, $rest) ?: glob(__DIR__ . '/data/*.toml');
 
-if ($impl !== 'ext') {
+if ($impl === 'devium' || $impl === 'yosymfony') {
     require getenv('COMPOSER_AUTOLOAD') ?: __DIR__ . '/vendor/autoload.php';
 }
 $parse = match ($impl) {
     'ext' => toml_parse(...),
+    'json' => static fn(string $s) => json_decode($s, true),
     'devium' => static fn(string $s) => \Devium\Toml\Toml::decode($s, asArray: true),
     'yosymfony' => \Yosymfony\Toml\Toml::parse(...),
 };
@@ -20,6 +22,9 @@ $parse = match ($impl) {
 printf("%-12s %10s %10s %10s %10s %10s %10s %10s\n", 'file', 'bytes', 'median us', 'p95 us', 'cpu us', 'MB/s', 'peak KB', 'result KB');
 foreach ($files as $file) {
     $src = file_get_contents($file);
+    if ($impl === 'json') {
+        $src = json_encode(toml_parse($src));
+    }
     $parse($src);
 
     $base = memory_get_usage();
