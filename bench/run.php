@@ -1,8 +1,8 @@
 <?php
 
-// usage: php bench/run.php [--impl=ext|json|devium|yosymfony] [--time=1.0] [files...]
+// usage: php bench/run.php [--impl=ext|json|yaml|devium|yosymfony] [--time=1.0] [files...]
 // Without files it runs every document in bench/data (run generate.php first).
-// json times json_decode() on the same data re-encoded as JSON, as a reference point.
+// json and yaml time json_decode() and yaml_parse() on the same data re-encoded, as reference points.
 
 $opts = getopt('', ['impl:', 'time:'], $rest);
 $impl = $opts['impl'] ?? 'ext';
@@ -15,6 +15,7 @@ if ($impl === 'devium' || $impl === 'yosymfony') {
 $parse = match ($impl) {
     'ext' => toml_parse(...),
     'json' => static fn(string $s) => json_decode($s, true),
+    'yaml' => yaml_parse(...),
     'devium' => static fn(string $s) => \Devium\Toml\Toml::decode($s, asArray: true),
     'yosymfony' => \Yosymfony\Toml\Toml::parse(...),
 };
@@ -24,6 +25,8 @@ foreach ($files as $file) {
     $src = file_get_contents($file);
     if ($impl === 'json') {
         $src = json_encode(toml_parse($src));
+    } elseif ($impl === 'yaml') {
+        $src = yaml_emit(toml_parse($src));
     }
     $parse($src);
 

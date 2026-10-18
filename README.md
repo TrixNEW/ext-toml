@@ -118,17 +118,17 @@ PHP 8.4.26 NTS release build, GCC 13.3, AMD Ryzen 5 5500 under WSL2, one pinned 
 
 ```sh
 php bench/generate.php
-php -d extension=modules/toml.so bench/run.php [--impl=ext|json|devium|yosymfony]
+php -d extension=modules/toml.so bench/run.php [--impl=ext|json|yaml|devium|yosymfony]
 ```
 
-Median parse time (p95 in parentheses):
+Median parse time (p95 in parentheses). The `json_decode` and `yaml_parse` columns parse the same data re-encoded with `json_encode` and `yaml_emit`. `yaml_parse` is [pecl yaml](https://github.com/php/pecl-file_formats-yaml) 2.3.0 on libyaml 0.2.5, the versions [PHP-Binaries](https://github.com/Bedrock-Phanatics/PHP-Binaries) ships for PocketMine-MP.
 
-| Document | Size | ext-toml | tomlc17 tree, then converted | `json_decode` of the same data |
-| --- | ---: | ---: | ---: | ---: |
-| tiny | 136 B | 0.31 µs (0.53) | 2.60 µs (3.79) | 0.62 µs (1.08) |
-| typical | 4.6 KB | 11.5 µs (17.4) | 90.2 µs (145) | 21.2 µs (36.9) |
-| large | 1.2 MB | 4.32 ms (5.95) | 52.2 ms (59.7) | 7.04 ms (8.69) |
-| deep | 41 KB | 287 µs (447) | 2.25 ms (3.38) | 514 µs (646) |
+| Document | Size | ext-toml | tomlc17 tree, then converted | `json_decode` | `yaml_parse` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| tiny | 136 B | 0.31 µs (0.53) | 2.60 µs (3.79) | 0.62 µs (1.08) | 4.56 µs (10.0) |
+| typical | 4.6 KB | 11.5 µs (17.4) | 90.2 µs (145) | 21.2 µs (36.9) | 168 µs (286) |
+| large | 1.2 MB | 4.32 ms (5.95) | 52.2 ms (59.7) | 7.04 ms (8.69) | 38.4 ms (47.7) |
+| deep | 41 KB | 287 µs (447) | 2.25 ms (3.38) | 514 µs (646) | 2.65 ms (3.29) |
 
 Heap allocations per parse, counted with Valgrind and `USE_ZEND_ALLOC=0`, and the size of the returned array:
 
