@@ -60,7 +60,7 @@ typedef struct {
 	char *buf;
 	size_t buf_cap;
 
-	zend_string *keys_inline[64];
+	zend_string *keys_inline[16];
 	toml_open open_inline[32];
 	toml_key parts_inline[16];
 } toml_parser;
@@ -273,7 +273,7 @@ static char *scratch(toml_parser *P, size_t n)
 
 static void keys_grow(toml_parser *P)
 {
-	uint32_t old_mask = P->keys_mask, mask = old_mask * 2 + 1;
+	uint32_t old_mask = P->keys_mask, mask = old_mask * 4 + 3;
 	zend_string **old = P->keys, **keys = ecalloc(mask + 1, sizeof(*keys));
 	for (uint32_t i = 0; i <= old_mask; i++) {
 		if (old[i]) {
@@ -297,6 +297,10 @@ static zend_string *key_string(toml_parser *P, const char *s, size_t len, zend_u
 {
 	if (len <= 1) {
 		return zend_string_init_fast(s, len);
+	}
+	if (UNEXPECTED(!P->keys)) {
+		memset(P->keys_inline, 0, sizeof(P->keys_inline));
+		P->keys = P->keys_inline;
 	}
 	uint32_t i = (uint32_t) h & P->keys_mask;
 	zend_string *k;
@@ -322,6 +326,9 @@ static zend_always_inline uint32_t open_slot(const toml_parser *P, const HashTab
 
 static uint32_t open_get(const toml_parser *P, const HashTable *ht)
 {
+	if (!P->open) {
+		return 0;
+	}
 	for (uint32_t i = open_slot(P, ht);; i = (i + 1) & P->open_mask) {
 		if (P->open[i].ht == ht) {
 			return P->open[i].flags;
@@ -334,6 +341,10 @@ static uint32_t open_get(const toml_parser *P, const HashTable *ht)
 
 static void open_set(toml_parser *P, const HashTable *ht, uint32_t flags)
 {
+	if (!P->open) {
+		memset(P->open_inline, 0, sizeof(P->open_inline));
+		P->open = P->open_inline;
+	}
 	uint32_t i = open_slot(P, ht);
 	while (P->open[i].ht && P->open[i].ht != ht) {
 		i = (i + 1) & P->open_mask;
@@ -1313,14 +1324,13 @@ bool php_toml_decode(zval *rv, const char *src, size_t len, php_toml_error *err)
 	P.err_at = NULL;
 	P.err = err;
 	P.depth = 0;
-	P.keys = P.keys_inline;
+	/* both maps are zeroed on first use, tiny documents never need the second */
+	P.keys = NULL;
 	P.keys_mask = sizeof(P.keys_inline) / sizeof(P.keys_inline[0]) - 1;
 	P.keys_count = 0;
-	memset(P.keys_inline, 0, sizeof(P.keys_inline));
-	P.open = P.open_inline;
+	P.open = NULL;
 	P.open_mask = sizeof(P.open_inline) / sizeof(P.open_inline[0]) - 1;
 	P.open_count = 0;
-	memset(P.open_inline, 0, sizeof(P.open_inline));
 	P.parts = P.parts_inline;
 	P.parts_cap = sizeof(P.parts_inline) / sizeof(P.parts_inline[0]);
 	P.buf = NULL;
@@ -1349,15 +1359,17 @@ bool php_toml_decode(zval *rv, const char *src, size_t len, php_toml_error *err)
 		err->column = col;
 	}
 
-	for (uint32_t i = 0; i <= P.keys_mask; i++) {
-		if (P.keys[i]) {
-			zend_string_release_ex(P.keys[i], 0);
+	if (P.keys) {
+		for (uint32_t i = 0; i <= P.keys_mask; i++) {
+			if (P.keys[i]) {
+				zend_string_release_ex(P.keys[i], 0);
+			}
+		}
+		if (P.keys != P.keys_inline) {
+			efree(P.keys);
 		}
 	}
-	if (P.keys != P.keys_inline) {
-		efree(P.keys);
-	}
-	if (P.open != P.open_inline) {
+	if (P.open && P.open != P.open_inline) {
 		efree(P.open);
 	}
 	if (P.parts != P.parts_inline) {
