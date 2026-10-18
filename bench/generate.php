@@ -1,8 +1,5 @@
 <?php
 
-// Writes the generated benchmark documents (large.toml, deep.toml) next to the
-// hand-written ones. Output is deterministic so runs stay comparable.
-
 $out = $argv[1] ?? __DIR__ . '/data';
 mt_srand(42);
 

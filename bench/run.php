@@ -34,7 +34,7 @@ foreach ($files as $file) {
     $resident = memory_get_usage() - $base;
     unset($kept);
 
-    // fast documents are timed in batches of at least ~20 us so the clock does not dominate
+    // fast documents are timed in batches so the clock does not dominate
     $batch = 1;
     do {
         $t = hrtime(true);

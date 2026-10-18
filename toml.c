@@ -56,7 +56,7 @@ PHP_FUNCTION(toml_parse_file)
 		RETURN_THROWS();
 	}
 
-	/* stream warnings (missing file, open_basedir, ...) become TomlException */
+	/* stream warnings become TomlException */
 	zend_replace_error_handling(EH_THROW, toml_exception_ce, &eh);
 	php_stream *stream = php_stream_open_wrapper_ex(ZSTR_VAL(path), "rb", REPORT_ERRORS, NULL, NULL);
 	if (stream) {

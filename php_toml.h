@@ -4,6 +4,6 @@
 extern zend_module_entry toml_module_entry;
 #define phpext_toml_ptr &toml_module_entry
 
-#define PHP_TOML_VERSION "0.1.0"
+#define PHP_TOML_VERSION "0.1.1"
 
 #endif

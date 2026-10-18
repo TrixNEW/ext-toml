@@ -17,13 +17,12 @@
 ZEND_TSRMLS_CACHE_EXTERN()
 #endif
 
-/* Flags of tables and arrays that later lines may still extend. Inline tables and
- * static arrays are never registered, so a missing entry means sealed. */
+/* tables that later lines may still extend, inline tables and arrays are never registered */
 enum {
-	OPEN_IMPLICIT = 1, /* created on the path of a [header] */
-	OPEN_DEFINED = 2,  /* named by its own [header] */
-	OPEN_DOTTED = 4,   /* created or extended through a dotted key */
-	OPEN_AOT = 8,      /* array of tables */
+	OPEN_IMPLICIT = 1,
+	OPEN_DEFINED = 2,
+	OPEN_DOTTED = 4,
+	OPEN_AOT = 8,
 };
 
 typedef struct {
@@ -75,7 +74,6 @@ static zend_always_inline bool is_digit(unsigned char c)
 
 enum { C_BARE = 1, C_BASIC = 2, C_LITERAL = 4 };
 
-/* bare key characters, and characters that need no attention inside basic and literal strings */
 static const unsigned char char_class[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -92,7 +90,6 @@ static zend_always_inline bool is_bare(unsigned char c)
 	return char_class[c] & C_BARE;
 }
 
-/* printable ASCII */
 static zend_always_inline bool is_plain(unsigned char c)
 {
 	return (unsigned) (c - 0x20) < 0x5F;
@@ -149,7 +146,6 @@ static zend_never_inline ZEND_COLD bool fail_unexpected(toml_parser *P, const ch
 	return fail(P, at, "Unexpected %s, expected %s", what, expected);
 }
 
-/* fmt takes the key as written, quoted keys keep their own quotes */
 static zend_never_inline ZEND_COLD bool fail_key(toml_parser *P, const toml_key *k, const char *fmt)
 {
 	char name[80];
@@ -162,7 +158,6 @@ static zend_never_inline ZEND_COLD bool fail_key(toml_parser *P, const toml_key 
 	return fail(P, k->at, fmt, name);
 }
 
-/* Length of the valid UTF-8 sequence at p (p[0] >= 0x80), or 0. */
 static zend_always_inline size_t utf8_len(const unsigned char *p)
 {
 	unsigned c = p[0];
@@ -223,7 +218,6 @@ static bool skip_comment(toml_parser *P)
 	return true;
 }
 
-/* whitespace, newlines and comments, as allowed inside arrays and inline tables */
 static bool skip_blank(toml_parser *P)
 {
 	for (;;) {
@@ -291,8 +285,7 @@ static void keys_grow(toml_parser *P)
 	P->keys_mask = mask;
 }
 
-/* Keys repeat heavily (arrays of tables), so each distinct key is allocated once
- * per parse and shared by every table that uses it. */
+/* each distinct key is allocated once per parse and shared by every table using it */
 static zend_string *key_string(toml_parser *P, const char *s, size_t len, zend_ulong h)
 {
 	if (len <= 1) {
@@ -406,7 +399,6 @@ static HashTable *tab_new_table(toml_parser *P, HashTable *t, const toml_key *k,
 	return Z_ARRVAL(zv);
 }
 
-/* Length of the escape sequence at p (p[0] == '\\'), validating it. */
 static size_t escape_len(toml_parser *P, const unsigned char *p)
 {
 	unsigned n;
@@ -463,7 +455,7 @@ static size_t utf8_encode(char *dst, uint32_t cp)
 	return 4;
 }
 
-/* Decodes an already validated basic string body. The result is never longer than the input. */
+/* the decoded string is never longer than its source */
 static size_t unescape(char *dst, const char *s, const char *end, const char *esc)
 {
 	char *d = dst;
@@ -506,7 +498,6 @@ static size_t unescape(char *dst, const char *s, const char *end, const char *es
 	return d - dst;
 }
 
-/* Scans a basic string starting at its opening quote. *esc is the first backslash or NULL. */
 static bool scan_basic(toml_parser *P, const char **start, size_t *len, const char **esc)
 {
 	const unsigned char *p = (const unsigned char *) P->p + 1;
@@ -564,8 +555,7 @@ static bool scan_literal(toml_parser *P, const char **start, size_t *len)
 	return true;
 }
 
-/* Scans a multi-line string body after its opening delimiter. Up to two quotes
- * right before the closing delimiter belong to the content. */
+/* up to two quotes right before the closing delimiter belong to the content */
 static bool scan_multiline(toml_parser *P, char q, const char **start, size_t *len, const char **esc)
 {
 	const unsigned char *p = (const unsigned char *) P->p + 3;
@@ -895,8 +885,6 @@ static zend_always_inline bool digits2(const char *p, int *v)
 	return false;
 }
 
-/* Times and dates come back as RFC 3339 strings: 'T' separator, uppercase 'Z',
- * seconds filled in when omitted, fractional digits kept as written. */
 static bool parse_datetime(toml_parser *P, zval *rv)
 {
 	const char *s = P->p, *p = s, *date = NULL, *time = NULL, *frac = NULL, *off = NULL;
@@ -1009,7 +997,7 @@ static bool enter(toml_parser *P)
 	return true;
 }
 
-/* On failure the partly built value is released, so callers only own successes. */
+/* on failure the partly built value is released */
 static bool parse_array(toml_parser *P, zval *rv)
 {
 	if (!enter(P)) {
@@ -1119,7 +1107,6 @@ static bool parse_value(toml_parser *P, zval *rv)
 	return fail_unexpected(P, p, "a value");
 }
 
-/* Follows one dotted key part of a key/value pair, creating the table if needed. */
 static HashTable *descend_dotted(toml_parser *P, HashTable *t, const toml_key *k)
 {
 	zval *zv = tab_find(t, k);
@@ -1178,7 +1165,6 @@ static bool parse_keyval(toml_parser *P, HashTable *t)
 	return true;
 }
 
-/* Follows one non-final part of a [header] path, creating implicit tables. */
 static HashTable *descend_header(toml_parser *P, HashTable *t, const toml_key *k)
 {
 	zval *zv = tab_find(t, k);
@@ -1324,7 +1310,6 @@ bool php_toml_decode(zval *rv, const char *src, size_t len, php_toml_error *err)
 	P.err_at = NULL;
 	P.err = err;
 	P.depth = 0;
-	/* both maps are zeroed on first use, tiny documents never need the second */
 	P.keys = NULL;
 	P.keys_mask = sizeof(P.keys_inline) / sizeof(P.keys_inline[0]) - 1;
 	P.keys_count = 0;
