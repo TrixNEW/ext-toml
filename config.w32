@@ -1,0 +1,6 @@
+ARG_ENABLE("toml", "Enable TOML parsing support", "no");
+
+if (PHP_TOML != "no") {
+	EXTENSION("toml", "toml.c", PHP_TOML_SHARED, "/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1");
+	ADD_SOURCES(configure_module_dirname + "/src", "parser.c", "toml");
+}
