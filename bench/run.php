@@ -8,14 +8,14 @@ $impl = $opts['impl'] ?? 'ext';
 $budget = (float) ($opts['time'] ?? 1.0);
 $files = array_slice($argv, $rest) ?: glob(__DIR__ . '/data/*.toml');
 
+if ($impl !== 'ext') {
+    require getenv('COMPOSER_AUTOLOAD') ?: __DIR__ . '/vendor/autoload.php';
+}
 $parse = match ($impl) {
     'ext' => toml_parse(...),
     'devium' => static fn(string $s) => \Devium\Toml\Toml::decode($s, asArray: true),
     'yosymfony' => \Yosymfony\Toml\Toml::parse(...),
 };
-if ($impl !== 'ext') {
-    require getenv('COMPOSER_AUTOLOAD') ?: __DIR__ . '/vendor/autoload.php';
-}
 
 printf("%-12s %10s %10s %10s %10s %10s %10s %10s\n", 'file', 'bytes', 'median us', 'p95 us', 'cpu us', 'MB/s', 'peak KB', 'result KB');
 foreach ($files as $file) {
