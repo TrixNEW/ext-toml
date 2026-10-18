@@ -19,12 +19,16 @@ try {
 } catch (TomlParseException $e) {
     echo str_replace($dir, 'DIR', $e->getMessage()), "\n";
 }
-foreach (["$dir/missing.toml", $dir] as $path) {
-    try {
-        toml_parse_file($path);
-    } catch (TomlException $e) {
-        echo get_class($e), ': ', str_replace($dir, 'DIR', $e->getMessage()), "\n";
-    }
+try {
+    toml_parse_file("$dir/missing.toml");
+} catch (TomlException $e) {
+    echo get_class($e), ': ', str_replace($dir, 'DIR', $e->getMessage()), "\n";
+}
+// Windows already fails to open a directory, elsewhere the stat check catches it
+try {
+    toml_parse_file($dir);
+} catch (TomlException $e) {
+    echo get_class($e), "\n";
 }
 foreach (["", "a\0b"] as $path) {
     try {
@@ -60,6 +64,6 @@ array(1) {
 }
 Unexpected newline, expected a value in DIR%cbad.toml on line 2, column 5
 TomlException: toml_parse_file(DIR%cmissing.toml): Failed to open stream: No such file or directory
-TomlException: DIR is a directory
+TomlException
 ValueError: toml_parse_file(): Argument #1 ($path) must not be empty
 ValueError: toml_parse_file(): Argument #1 ($path) must not contain any null bytes
