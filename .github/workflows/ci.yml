@@ -121,4 +121,5 @@ jobs:
           php-version: ${{ matrix.php }}
           arch: x64
           ts: ${{ matrix.ts }}
+          args: --enable-toml
           run-tests: true
