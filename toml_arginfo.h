@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: c3d631a49e894564b7c9eb18d21bf01107bde709 */
+ * Stub hash: 1358384b381d692fd975d61b13fd619f50a0b005 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_toml_parse, 0, 1, IS_ARRAY, 0)
 	ZEND_ARG_TYPE_INFO(0, source, IS_STRING, 0)
@@ -9,6 +9,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_toml_parse_file, 0, 1, IS_ARRAY,
 	ZEND_ARG_TYPE_INFO(0, path, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_toml_encode, 0, 1, IS_STRING, 0)
+	ZEND_ARG_TYPE_INFO(0, data, IS_ARRAY, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_TomlParseException_getTomlLine, 0, 0, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
@@ -16,12 +20,14 @@ ZEND_END_ARG_INFO()
 
 ZEND_FUNCTION(toml_parse);
 ZEND_FUNCTION(toml_parse_file);
+ZEND_FUNCTION(toml_encode);
 ZEND_METHOD(TomlParseException, getTomlLine);
 ZEND_METHOD(TomlParseException, getTomlColumn);
 
 static const zend_function_entry ext_functions[] = {
 	ZEND_FE(toml_parse, arginfo_toml_parse)
 	ZEND_FE(toml_parse_file, arginfo_toml_parse_file)
+	ZEND_FE(toml_encode, arginfo_toml_encode)
 	ZEND_FE_END
 };
 

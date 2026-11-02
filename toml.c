@@ -7,6 +7,7 @@
 #include "zend_exceptions.h"
 #include "php_toml.h"
 #include "src/parser.h"
+#include "src/encoder.h"
 #include "toml_arginfo.h"
 
 static zend_class_entry *toml_exception_ce;
@@ -82,6 +83,23 @@ PHP_FUNCTION(toml_parse_file)
 		throw_parse_error(&err, path);
 	}
 	zend_string_release_ex(contents, 0);
+}
+
+PHP_FUNCTION(toml_encode)
+{
+	HashTable *data;
+	char error[PHP_TOML_ERROR_SIZE];
+
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_ARRAY_HT(data)
+	ZEND_PARSE_PARAMETERS_END();
+
+	zend_string *encoded = php_toml_encode(data, error);
+	if (!encoded) {
+		zend_throw_exception(toml_exception_ce, error, 0);
+		RETURN_THROWS();
+	}
+	RETURN_STR(encoded);
 }
 
 PHP_METHOD(TomlParseException, getTomlLine)

@@ -158,28 +158,11 @@ static zend_never_inline ZEND_COLD bool fail_key(toml_parser *P, const toml_key 
 	return fail(P, k->at, fmt, name);
 }
 
-static zend_always_inline size_t utf8_len(const unsigned char *p)
-{
-	unsigned c = p[0];
-	if (c >= 0xC2 && c <= 0xDF) {
-		return (p[1] & 0xC0) == 0x80 ? 2 : 0;
-	}
-	if (c >= 0xE0 && c <= 0xEF) {
-		unsigned lo = c == 0xE0 ? 0xA0 : 0x80, hi = c == 0xED ? 0x9F : 0xBF;
-		return p[1] >= lo && p[1] <= hi && (p[2] & 0xC0) == 0x80 ? 3 : 0;
-	}
-	if (c >= 0xF0 && c <= 0xF4) {
-		unsigned lo = c == 0xF0 ? 0x90 : 0x80, hi = c == 0xF4 ? 0x8F : 0xBF;
-		return p[1] >= lo && p[1] <= hi && (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80 ? 4 : 0;
-	}
-	return 0;
-}
-
 static zend_never_inline bool skip_char(toml_parser *P, const unsigned char **pp, const char *what)
 {
 	const unsigned char *p = *pp;
 	if (*p >= 0x80) {
-		size_t n = utf8_len(p);
+		size_t n = php_toml_utf8_len(p);
 		if (n) {
 			*pp = p + n;
 			return true;

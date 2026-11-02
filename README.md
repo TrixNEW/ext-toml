@@ -1,6 +1,6 @@
 # ext-toml
 
-A fast, lightweight [TOML 1.1](https://toml.io/en/v1.1.0) parser for PHP 8.4+, written in C17.
+A fast, lightweight [TOML 1.1](https://toml.io/en/v1.1.0) parser and encoder for PHP 8.4+, written in C17.
 
 ext-toml parses directly into PHP arrays without building an intermediate syntax tree, minimizing memory allocations and parsing overhead.
 
@@ -16,13 +16,15 @@ ext-toml parses directly into PHP arrays without building an intermediate syntax
 ```php
 $config = toml_parse_file(__DIR__ . '/server.toml');
 $config = toml_parse('port = 19132');
+$toml = toml_encode(['port' => 19132, 'worlds' => [['name' => 'world']]]);
 ```
 
-The extension provides two functions:
+The extension provides three functions:
 
 ```php
 toml_parse(string $source): array
 toml_parse_file(string $path): array
+toml_encode(array $data): string
 ```
 
 TOML tables become associative PHP arrays, while TOML arrays become indexed arrays. Strings, integers, floats and booleans map to their corresponding PHP types. Date and time values are returned as normalized strings.
@@ -30,6 +32,8 @@ TOML tables become associative PHP arrays, while TOML arrays become indexed arra
 Invalid TOML throws `TomlParseException`, which provides `getTomlLine()` and `getTomlColumn()` for error reporting. File access failures throw `TomlException`.
 
 File parsing uses PHP streams and respects `open_basedir` and other standard PHP stream restrictions.
+
+`toml_encode()` writes plain keys first and non-empty tables under `[table]` headers, with lists of tables as `[[table]]`. Other lists and tables nested in them are written inline, and an empty array is written as `[]`. Integer keys are written as keys, which PHP turns back into integers when parsed. Floats use the shortest form that reads back exactly. Null, objects, resources, invalid UTF-8 and nesting past 256 levels throw `TomlException`.
 
 ## Benchmarks
 

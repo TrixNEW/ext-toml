@@ -8,6 +8,9 @@ function toml_parse(string $source): array {}
 /** @refcount 1 */
 function toml_parse_file(string $path): array {}
 
+/** @refcount 1 */
+function toml_encode(array $data): string {}
+
 class TomlException extends Exception
 {
 }
